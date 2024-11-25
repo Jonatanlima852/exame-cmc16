@@ -3,11 +3,11 @@ from models.model import CarPriceModel
 import json
 from pathlib import Path
 
-@st.cache_data  # Cache para melhor performance
+# @st.cache_data  # Cache para melhor performance
 def load_brand_models():
     """Carrega o dicionário de marcas e modelos do JSON"""
     try:
-        json_path = Path(__file__).parent.parent / 'models' / 'brand_models.json'
+        json_path = Path(__file__).parent.parent / 'utils' / 'brand_models.json'
         with open(json_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
@@ -68,7 +68,7 @@ def main():
         input_data = {
             'brand': brand,
             'model': car_model,
-            'model_year': year,
+            'model_year': year, 
             'milage': mileage,
             'fuel_type': fuel_type,
             'engine': engine,
@@ -76,11 +76,12 @@ def main():
             'ext_col': ext_color,
             'int_col': int_color,
             'accident': accident,
-            'clean_title': clean_title
+            'clean_title': clean_title,
         }
 
         try:
             # Fazer previsão
+            print("\nColunas antes da previsão:", input_data.keys())
             prediction = model.predict(input_data)
             
             # Mostrar resultado

@@ -45,9 +45,7 @@ class CarPriceModel(BaseEstimator, TransformerMixin):
         processed_data = self.preprocessor.preprocess_data(data, is_training=False)
         
         # Garante que todas as colunas necessárias estejam presentes
-        required_columns = ['brand', 'model', 'car_age', 'milage', 'fuel_type',
-                          'engine_transmission', 'int_ext_color', 'accident', 
-                          'clean_title']
+        required_columns = ['brand', 'model', 'milage', 'fuel_type', 'accident', 'engine_transmission', 'int_ext_color', 'car_age']
         
         missing_cols = set(required_columns) - set(processed_data.columns)
         if missing_cols:
