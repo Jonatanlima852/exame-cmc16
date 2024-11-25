@@ -1,6 +1,5 @@
 import streamlit as st
 from models.model import CarPriceModel
-import pandas as pd
 import json
 from pathlib import Path
 
