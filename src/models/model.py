@@ -1,19 +1,81 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import pandas as pd
 import numpy as np
+import joblib
+from pathlib import Path
+from data.preprocessing import DataPreprocessor
+
 
 class CarPriceModel(BaseEstimator, TransformerMixin):
     def __init__(self):
-        self.model = None
+        base_path = Path(__file__).parent.parent  # vai para o diretório src
+        self.model_path = base_path / 'models' / 'car_price_xgb_model.pkl'
+        self.preprocessor = DataPreprocessor()
+        self.model = self._load_model()
     
-    def fit(self, X, y):
-        # Implementação do treinamento virá aqui
-        pass
+    def _load_model(self):
+        """Carrega o modelo XGBoost salvo"""
+        try:
+            return joblib.load(self.model_path)
+        except Exception as e:
+            raise Exception(f"Erro ao carregar o modelo: {str(e)}")
     
-    def predict(self, X):
-        # Implementação da previsão virá aqui
-        pass
+    def save_model(self):
+        """Salva o modelo treinado"""
+        try:
+            joblib.dump(self.model, self.model_path)
+        except Exception as e:
+            raise Exception(f"Erro ao salvar o modelo: {str(e)}")
     
     def preprocess_data(self, data):
-        # Implementação do pré-processamento virá aqui
-        pass 
+        """
+        Pré-processa os dados de entrada usando o DataPreprocessor
+        
+        Args:
+            data: Dict ou DataFrame com os dados de entrada
+            
+        Returns:
+            DataFrame pré-processado
+        """
+        # Converte os dados de entrada em DataFrame se necessário
+        if isinstance(data, dict):
+            data = pd.DataFrame([data])
+        
+        # Aplica o pré-processamento
+        processed_data = self.preprocessor.preprocess_data(data, is_training=False)
+        
+        # Garante que todas as colunas necessárias estejam presentes
+        required_columns = ['brand', 'model', 'car_age', 'milage', 'fuel_type',
+                          'engine_transmission', 'int_ext_color', 'accident', 
+                          'clean_title']
+        
+        missing_cols = set(required_columns) - set(processed_data.columns)
+        if missing_cols:
+            raise ValueError(f"Colunas ausentes nos dados: {missing_cols}")
+            
+        return processed_data[required_columns]
+    
+    def predict(self, X):
+        """
+        Realiza a predição usando o modelo XGBoost
+        
+        Args:
+            X: Dict ou DataFrame com os dados de entrada
+            
+        Returns:
+            Array com as predições
+        """
+        processed_data = self.preprocess_data(X)
+        return self.model.predict(processed_data)
+    
+    def fit(self, X, y):
+        """
+        Treina o modelo (se necessário)
+        
+        Args:
+            X: Features de treino
+            y: Target
+        """
+        processed_X = self.preprocess_data(X)
+        self.model.fit(processed_X, y)
+        return self
