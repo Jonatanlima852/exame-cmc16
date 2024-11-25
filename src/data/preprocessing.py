@@ -127,14 +127,9 @@ class DataPreprocessor:
         """
         df_processed = df.copy()
         
-        # Debug: Imprimir dados iniciais
-        print("\nDados iniciais:")
-        print(df_processed['accident'].value_counts())
         
         # Imputação de dados
         df_processed = self.knn_impute(df_processed, n_neighbors=25)
-        print("\nApós imputação KNN:")
-        print(df_processed['accident'].value_counts())
 
         # Remove ID se existir
         if 'id' in df_processed.columns:
@@ -160,8 +155,6 @@ class DataPreprocessor:
         df_processed[cat_cols] = self.target_encoder.transform(df_processed[cat_cols])
         
         # Escalonamento das features numéricas
-        print("\nAntes do escalonamento:")
-        print(df_processed['accident'].value_counts())
         
         numeric_cols = ['brand', 'model', 'car_age', 'milage', 'fuel_type',
                        'engine_transmission', 'int_ext_color', 'accident']
@@ -182,8 +175,6 @@ class DataPreprocessor:
             df_processed[col] = df_processed[col].astype(float)
         
         # Debug: Valores finais
-        print("\nValores finais:")
-        print(df_processed['accident'].value_counts())
 
         
 

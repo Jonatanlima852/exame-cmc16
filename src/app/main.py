@@ -58,15 +58,39 @@ def main():
         
         year = st.number_input("Ano do Modelo", min_value=1900, max_value=2024, value=2020)
         mileage = st.number_input("Quilometragem", min_value=0, value=50000)
-        fuel_type = st.selectbox("Tipo de Combustível", 
-                               ["Gasoline", "Diesel", "E85 Flex Fuel"])
+        fuel_type = st.selectbox("Tipo de Combustível", [
+            "Gasoline",
+            "Diesel",
+            "E85 Flex Fuel",
+            "Hybrid",
+            "Plug-In Hybrid",
+            "Electric"
+        ])
         
     with col2:
         engine = st.selectbox("Motor", [
             "2.0", "1.6", "3.0", "2.5", "1.8", "Other"
         ])
         
-        transmission = st.selectbox("Transmissão", ["Automatic", "Manual"])
+        transmission = st.selectbox("Transmissão", [
+            "A/T",  # Básico automático
+            "1-Speed A/T",
+            "2-Speed A/T",
+            "4-Speed A/T",
+            "5-Speed A/T",
+            "6-Speed A/T",
+            "7-Speed A/T",
+            "8-Speed A/T", 
+            "9-Speed A/T",
+            "10-Speed A/T",
+            "5-Speed M/T",  # Manuais
+            "6-Speed M/T",
+            "7-Speed M/T",
+            "CVT Transmission",  # Outros tipos específicos
+            "Transmission w/Dual Shift Mode",
+            "Automatic",  # Genéricos
+            "Manual"
+        ])
         ext_color = st.selectbox("Cor Externa", [
             "Black", "White", "Silver", "Gray", "Blue", "Red", "Other"
         ])
