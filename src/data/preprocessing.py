@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Tuple
 from sklearn.impute import KNNImputer
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import joblib
+import category_encoders as ce  # Importar TargetEncoder
 
 class DataPreprocessor:
     """
@@ -12,8 +13,8 @@ class DataPreprocessor:
     """
     def __init__(self):
         base_path = Path(__file__).parent.parent  # vai para o diretório src
-        encoder_path = base_path / 'models' / 'ordinal_encoder.pkl'
-        
+        encoder_path = base_path / 'models' / 'target_encoder.pkl'  # Atualizado para TargetEncoder.pkl
+        scaler_path = base_path / 'models' / 'standard_scaler.pkl'
         # Atualizando a ordem para corresponder ao CSV original
         self.feature_order = [
             'brand',
@@ -29,11 +30,18 @@ class DataPreprocessor:
         
         # Carrega o encoder salvo ou cria um novo se não existir
         try:
-            self.ordinal_encoder = joblib.load(encoder_path)
+            self.target_encoder = joblib.load(encoder_path)
         except:
-            self.ordinal_encoder = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1)
-            
-        self.scaler = StandardScaler()
+            print("Não foi possível carregar o encoder salvo. Inicializando um novo.")
+            self.target_encoder = ce.TargetEncoder(cols=[])  # Inicializar sem colunas, será definido no método
+        
+
+        # Inicializar o scaler
+        try:
+            self.scaler = joblib.load(scaler_path)
+        except:
+            print("Não foi possível carregar o scaler salvo. Inicializando um novo.")
+            self.scaler = StandardScaler()
         
     def knn_impute(self, df: pd.DataFrame, n_neighbors: int = 5) -> pd.DataFrame:
         """
@@ -86,7 +94,7 @@ class DataPreprocessor:
         upper_bound = Q3 + 1.5 * IQR
         
         return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
+    
     def create_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Cria novas features
@@ -98,94 +106,95 @@ class DataPreprocessor:
             DataFrame com novas features
         """
         df_new = df.copy()
-        
+    
         # Cria features compostas
-        df_new['engine_transmission'] = df_new['engine'] * df_new['transmission']
-        df_new['int_ext_color'] = df_new['int_col'] * df_new['ext_col']
-        
+        df_new['engine_transmission'] = df_new['engine'].astype(str) + "_" + df_new['transmission'].astype(str)
+        df_new['int_ext_color'] = df_new['int_col'].astype(str) + "_" + df_new['ext_col'].astype(str)
+    
         # Remove colunas originais usadas nas features compostas
-        df_new.drop(columns=['engine', 'transmission', 'int_col', 'ext_col'], inplace=True)
-        
-        # Calcula idade do carro
-        df_new['car_age'] = 2024 - df_new['model_year']
-        df_new.drop(columns=['model_year'], inplace=True)
+        df_new.drop(columns=['engine', 'transmission', 'int_col', 'ext_col'], inplace=True, errors='ignore')
+
+        # Remover a coluna 'clean_title' se existir
+        if 'clean_title' in df_new.columns:
+            df_new.drop(columns=['clean_title'], inplace=True)
         
         return df_new
 
+    
     def preprocess_data(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
         """
         Realiza todo o pré-processamento dos dados
         """
         df_processed = df.copy()
         
+        # Debug: Imprimir dados iniciais
+        print("\nDados iniciais:")
+        print(df_processed['accident'].value_counts())
+        
+        # Imputação de dados
+        df_processed = self.knn_impute(df_processed, n_neighbors=25)
+        print("\nApós imputação KNN:")
+        print(df_processed['accident'].value_counts())
+
         # Remove ID se existir
         if 'id' in df_processed.columns:
             df_processed = df_processed.drop(columns=['id'])
             
-        # Calcula car_age se necessário
+        # Calcular car_age se necessário
         if 'model_year' in df_processed.columns:
             df_processed['car_age'] = 2024 - df_processed['model_year'].astype(int)
-            df_processed = df_processed.drop(columns=['model_year'])
-            
-        # Imputação de dados
-        df_processed = self.knn_impute(df_processed, n_neighbors=25)
+            df_processed = df_processed.drop(columns=['model_year'], errors='ignore')
         
-        # Codifica variáveis categóricas
-        cat_cols = df_processed.select_dtypes(include=['object']).columns
-        if len(cat_cols) > 0:
-            df_processed[cat_cols] = self.ordinal_encoder.transform(df_processed[cat_cols].astype(str))
         
-        # Criação de features compostas
-        if 'engine' in df_processed.columns and 'transmission' in df_processed.columns:
-            df_processed['engine_transmission'] = (
-                df_processed.apply(
-                    lambda x: f"{str(x['engine'])}_{str(x['transmission'])}", 
-                    axis=1
-                ).astype('category').cat.codes
-            )
-            df_processed = df_processed.drop(columns=['engine', 'transmission'])
-            
-        if 'int_col' in df_processed.columns and 'ext_col' in df_processed.columns:
-            df_processed['int_ext_color'] = (
-                df_processed.apply(
-                    lambda x: f"{str(x['int_col'])}_{str(x['ext_col'])}", 
-                    axis=1
-                ).astype('category').cat.codes
-            )
-            df_processed = df_processed.drop(columns=['int_col', 'ext_col'])
+        # Criar features compostas
+        df_processed = self.create_features(df_processed)
+
         
-        # Força a ordem exata das colunas
-        correct_order = [
-            'brand', 
-            'model', 
-            'car_age',
-            'milage', 
-            'fuel_type',
-            'engine_transmission',
-            'int_ext_color',
-            'accident'
-        ]
+        # Identificar colunas categóricas após criação das features
+        cat_cols = df_processed.select_dtypes(include=['object']).columns.tolist()
         
-        df_processed = df_processed[correct_order]
+
+        # Carregar o encoder salvo
+        encoder_path = Path(__file__).parent.parent / 'models' / 'target_encoder.pkl'
+        self.target_encoder = joblib.load(encoder_path)
+        df_processed[cat_cols] = self.target_encoder.transform(df_processed[cat_cols])
         
-        # Forçar o tipo das colunas para float
+        # Escalonamento das features numéricas
+        print("\nAntes do escalonamento:")
+        print(df_processed['accident'].value_counts())
+        
+        numeric_cols = ['brand', 'model', 'car_age', 'milage', 'fuel_type',
+                       'engine_transmission', 'int_ext_color', 'accident']
+        
+
+        # Carregar o scaler salvo
+        scaler_path = Path(__file__).parent.parent / 'models' / 'standard_scaler.pkl'
+        self.scaler = joblib.load(scaler_path)
+        df_processed[numeric_cols] = self.scaler.transform(df_processed[numeric_cols])
+        
+        # Selecionar apenas as colunas necessárias
+        required_columns = ['brand', 'model', 'car_age', 'milage', 'fuel_type',
+                            'engine_transmission', 'int_ext_color', 'accident']
+        df_processed = df_processed[required_columns]
+        
+        # Garantir que todas as colunas estão como float
         for col in df_processed.columns:
             df_processed[col] = df_processed[col].astype(float)
         
-        return df_processed
+        # Debug: Valores finais
+        print("\nValores finais:")
+        print(df_processed['accident'].value_counts())
 
+        
+
+        return df_processed
+        
+        
+    
     def prepare_for_training(self, df: pd.DataFrame, target_col: str = 'price', 
                            scale_features: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
         """
         Prepara dados para treinamento
         """
-        df_processed = self.preprocess_data(df, is_training=True)
-        
-        if scale_features:
-            numeric_cols = ['brand', 'model', 'milage', 'int_ext_color', 'engine_transmission']
-            df_processed.loc[:, numeric_cols] = self.scaler.fit_transform(df_processed[numeric_cols])
-        
-        X = df_processed
-        y = df[target_col] if target_col in df.columns else None
-        
+        X, y = self.preprocess_data(df, is_training=True)
         return X, y

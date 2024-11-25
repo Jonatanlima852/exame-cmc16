@@ -74,7 +74,7 @@ def main():
             "Black", "Beige", "Gray", "Brown", "Other"
         ])
         accident = st.selectbox("Histórico de Acidentes", 
-                              ["None reported", "At least 1 accident"])
+                              ["None reported", "At least 1 accident or damage reported"])
 
     if st.button("Prever Preço"):
         # Preparar dados para previsão
